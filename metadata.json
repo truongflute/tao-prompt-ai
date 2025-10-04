@@ -1,0 +1,5 @@
+{
+  "name": "Tạo prompt chuyên nghiệp cho video AI của bạn",
+  "description": "An application to help users create detailed and effective video generation prompts for the Veo model, with specific controls for character consistency, language, and duration.",
+  "requestFramePermissions": []
+}
