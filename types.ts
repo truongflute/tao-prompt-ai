@@ -90,3 +90,10 @@ export type Script = {
   atmosphere: string;
   styleSuggestion: string;
 };
+
+export type HistoryItem = {
+  id: string;
+  type: 'script' | 'veo';
+  prompt: string;
+  timestamp: number;
+};

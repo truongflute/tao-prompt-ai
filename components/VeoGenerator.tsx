@@ -1,7 +1,26 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Duration, DurationOption, Style, StyleOption, Language, LanguageOption, Voice, VoiceOption } from '../types';
+import { Duration, DurationOption, Style, StyleOption, Language, LanguageOption, Voice, VoiceOption, HistoryItem } from '../types';
 import { generateVeoPrompt } from '../services/geminiService';
 import { MagicWandIcon, CopyIcon, CheckIcon, LoadingSpinner, DownloadIcon } from './Icons';
+
+const HISTORY_KEY = 'prompt-history';
+
+const saveToHistory = (type: 'script' | 'veo', prompt: string) => {
+    try {
+        const item: HistoryItem = {
+            id: crypto.randomUUID(),
+            type,
+            prompt,
+            timestamp: Date.now()
+        };
+        const storedHistory = localStorage.getItem(HISTORY_KEY);
+        const history: HistoryItem[] = storedHistory ? JSON.parse(storedHistory) : [];
+        history.unshift(item);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (error) {
+        console.error("Failed to save to history", error);
+    }
+};
 
 const DURATION_OPTIONS: DurationOption[] = [
   { value: Duration.VeryShort, label: 'Rất ngắn', description: '~8 giây (1 cảnh)' },
@@ -112,6 +131,22 @@ const VeoGenerator: React.FC = () => {
         setCharacterStylePrompt(prompt);
         setScenes([]);
       }
+      
+      let promptToSave: string;
+      if (sceneStartIndex !== -1) {
+          const characterPart = prompt.substring(0, sceneStartIndex).trim().replace(/(\r\n|\n|\r)+/gm, " ");
+          const scenesPart = prompt.substring(sceneStartIndex).trim();
+          const sceneArray = scenesPart.split(/\n*(?=Scene \d+:)/i).map(s => s.trim()).filter(Boolean);
+
+          promptToSave = sceneArray.map(scene => {
+              const seamlessScene = scene.replace(/(\r\n|\n|\r)+/gm, " ").trim();
+              return `${characterPart} ${seamlessScene}`;
+          }).join('\n\n');
+      } else {
+          promptToSave = prompt.replace(/(\r\n|\n|\r)+/gm, " ").trim();
+      }
+      saveToHistory('veo', promptToSave);
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.';
       setError(errorMessage);

@@ -1,11 +1,30 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Part } from '@google/genai';
 import { generateScript } from '../services/geminiService';
-import { Script } from '../types';
+import { Script, HistoryItem } from '../types';
 import {
   SparklesIcon, CopyIcon, CheckIcon, LoadingSpinner, ImageIcon, XIcon,
   UserIcon, MapPinIcon, BookOpenIcon, WindIcon, PaletteIcon
 } from './Icons';
+
+const HISTORY_KEY = 'prompt-history';
+
+const saveToHistory = (type: 'script' | 'veo', prompt: string) => {
+    try {
+        const item: HistoryItem = {
+            id: crypto.randomUUID(),
+            type,
+            prompt,
+            timestamp: Date.now()
+        };
+        const storedHistory = localStorage.getItem(HISTORY_KEY);
+        const history: HistoryItem[] = storedHistory ? JSON.parse(storedHistory) : [];
+        history.unshift(item);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (error) {
+        console.error("Failed to save to history", error);
+    }
+};
 
 const fileToGenerativePart = async (file: File): Promise<Part> => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -48,33 +67,6 @@ const ScriptGenerator: React.FC = () => {
     }
   };
   
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!idea.trim() && !imageFile) {
-        setError('Vui lòng nhập ý tưởng hoặc tải lên một hình ảnh.');
-        return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setScript(null);
-    setIsCopied(false);
-
-    try {
-        let imagePart: Part | null = null;
-        if (imageFile) {
-            imagePart = await fileToGenerativePart(imageFile);
-        }
-        const generatedScript = await generateScript(idea, imagePart);
-        setScript(generatedScript);
-    } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Đã có lỗi xảy ra.';
-        setError(errorMessage);
-    } finally {
-        setIsLoading(false);
-    }
-  }, [idea, imageFile]);
-
   const formattedScript = useMemo(() => {
     if (!script) return '';
     return `
@@ -94,6 +86,52 @@ Phong cách đề xuất:
 ${script.styleSuggestion}
     `.trim();
   }, [script]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!idea.trim() && !imageFile) {
+        setError('Vui lòng nhập ý tưởng hoặc tải lên một hình ảnh.');
+        return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    setScript(null);
+    setIsCopied(false);
+
+    try {
+        let imagePart: Part | null = null;
+        if (imageFile) {
+            imagePart = await fileToGenerativePart(imageFile);
+        }
+        const generatedScript = await generateScript(idea, imagePart);
+        setScript(generatedScript);
+
+        const scriptText = `
+Nhân vật:
+${generatedScript.character}
+
+Bối cảnh:
+${generatedScript.setting}
+
+Cốt truyện:
+${generatedScript.plot}
+
+Không khí/Cảm xúc:
+${generatedScript.atmosphere}
+
+Phong cách đề xuất:
+${generatedScript.styleSuggestion}
+    `.trim();
+        saveToHistory('script', scriptText);
+
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Đã có lỗi xảy ra.';
+        setError(errorMessage);
+    } finally {
+        setIsLoading(false);
+    }
+  }, [idea, imageFile]);
 
   const handleCopy = useCallback(() => {
     if (!formattedScript) return;
